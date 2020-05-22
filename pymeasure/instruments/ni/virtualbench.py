@@ -32,6 +32,7 @@ from ctypes import (c_bool, c_size_t, c_double, c_uint8, c_int32, c_uint32,
                     c_int64, c_uint64, c_wchar, c_wchar_p, Structure, c_int,
                     cdll, byref)
 from datetime import datetime, timezone, timedelta
+from collections import OrderedDict
 import numpy as np
 import pandas as pd
 
@@ -350,6 +351,34 @@ class VirtualBench():
             self._instrument_handle.release()
             self.isShutdown = True
 
+        @staticmethod
+        def to_dict(parameters, names, *args):
+            """ Takes parameters returned by instrument and ordered list
+            of corresponding parameter names (optional function) and returns
+            dict of parameters including names.
+
+            :param parameters: Parameters
+            :param names: list of names or (name, function) tuples, ordered
+            :type names: list
+            :return: Parameter name and (processed) parameter
+            :rtype: dict
+            """
+            ret = OrderedDict()
+            if isinstance(parameters, str):
+                # otherwise string is enumerated
+                parameters_iter = [(0, parameters)]
+            else:
+                try:
+                    parameters_iter = enumerate(parameters)
+                except TypeError:
+                    # not iterable, e.g. single object
+                    parameters_iter = [(0, parameters)]
+            for i, parameter in parameters_iter:
+                if isinstance(names[i], tuple):
+                    ret[names[i][0]] = names[i][1](parameter, *args)
+                else:
+                    ret[names[i]] = parameter
+            return ret
 
     class DigitalInputOutput(VirtualBenchInstrument):
         """ Represents Digital Input Output (DIO) Module of Virtual Bench
@@ -1268,15 +1297,9 @@ class VirtualBench():
             """
             self.mso.configure_trigger_delay(trigger_delay)
 
-        def query_analog_channel(self, channel):
-            """ Indicates the vertical configuration of the specified channel.
-
-            :return: Channel enabled, vertical range, vertical offset,
-                     probe attenuation, vertical coupling
-            :rtype: (bool, float, float, enum, enum)
-            """
-            channel = self.validate_channel(channel)
-            return self.mso.query_analog_channel(channel)
+        # --------------------------
+        # Query Instrument Settings
+        # --------------------------
 
         def query_enabled_analog_channels(self):
             """ Returns String of enabled analog channels.
@@ -1286,7 +1309,31 @@ class VirtualBench():
             """
             return self.mso.query_enabled_analog_channels()
 
-        def query_analog_channel_characteristics(self, channel):
+        def query_analog_channel(self, channel, return_dict=False):
+            """ Indicates the vertical configuration of the specified channel.
+
+            :return: Channel enabled, vertical range, vertical offset,
+                     probe attenuation, vertical coupling
+            :rtype: (bool, float, float, enum, enum)
+            """
+            channel = self.validate_channel(channel)
+            parameters = self.mso.query_analog_channel(channel)
+            if return_dict is True:
+                names = [
+                    "Channel Enabled",
+                    "Vertical Range (V)",
+                    "Vertical Offset (V)",
+                    ("Probe Attenuation Factor",
+                     lambda param: int(param)),
+                    ("Vertical Coupling",
+                     lambda param: str(param).upper())
+                    ]
+                return {channel: self.to_dict(parameters, names)}
+            else:
+                return parameters
+
+        def query_analog_channel_characteristics(self, channel,
+                                                 return_dict=False):
             """ Indicates the properties that control the electrical
             characteristics of the specified channel.
             This method returns an error if too much power is
@@ -1295,7 +1342,17 @@ class VirtualBench():
                 :return: Input impedance, bandwidth limit
                 :rtype: (enum, float)
             """
-            return self.mso.query_analog_channel_characteristics(channel)
+            channel = self.validate_channel(channel)
+            parameters = self.mso.query_analog_channel_characteristics(channel)
+            if return_dict is True:
+                names = [
+                    ("Input Impedance",
+                     lambda param: str(param)),
+                    "Bandwidth Limit (Hz)"
+                    ]
+                return {channel: self.to_dict(parameters, names)}
+            else:
+                return parameters
 
         # def query_digital_channel(self):
         #     ''' Indicates whether the specified digital channel is enabled.
@@ -1310,7 +1367,7 @@ class VirtualBench():
         #         channels.
         #     '''
 
-        def query_timing(self):
+        def query_timing(self, return_dict=False):
             """ Indicates the timing configuration of the MSO.
             Call directly before measurement to read the actual timing
             configuration and write it to the corresponding class variables.
@@ -1321,11 +1378,22 @@ class VirtualBench():
                      sampling mode
             :rtype: (float, float, float, enum)
             """
+            parameters = self.mso.query_timing()
+            # set class variables to interpret measurement data
             (self.sample_rate, self.acquisition_time,
              self.pretrigger_time,
-             self.sampling_mode) = self.mso.query_timing()
-            return (self.sample_rate, self.acquisition_time,
-                    self.pretrigger_time, self.sampling_mode)
+             self.sampling_mode) = parameters
+            if return_dict is True:
+                names = [
+                    "Sample Rate (/s)",
+                    "Acquisition Time (s)",
+                    "Pretrigger Time (s)",
+                    ("Sampling Mode",
+                     lambda param: str(param)),
+                    ]
+                return self.to_dict(parameters, names)
+            else:
+                return parameters
 
         # def query_advanced_digital_timing(self):
         #     ''' Indicates the buffer configuration of the logic analyzer.
@@ -1335,16 +1403,26 @@ class VirtualBench():
         #     ''' Indicates the clock configuration of the logic analyzer.
         #     '''
 
-        def query_trigger_type(self, trigger_instance):
+        def query_trigger_type(self, trigger_instance, return_dict=False):
             """ Indicates the trigger type of the specified instance.
 
             :param trigger_instance: Trigger instance (``'A'`` or ``'B'``)
             :return: Trigger type
             :rtype: str
             """
-            return self.mso.query_trigger_type()
+            trigger_instance = self.validate_trigger_instance(trigger_instance)
+            parameters = self.mso.query_trigger_type(trigger_instance)
+            if return_dict is True:
+                names = [
+                    ("Trigger Type",
+                     lambda param: str(param))
+                    ]
+                return {str(trigger_instance): self.to_dict(parameters, names)}
+            else:
+                return parameters
 
-        def query_analog_edge_trigger(self, trigger_instance):
+        def query_analog_edge_trigger(self, trigger_instance,
+                                      return_dict=False):
             """ Indicates the analog edge trigger configuration of the
             specified instance.
 
@@ -1353,7 +1431,18 @@ class VirtualBench():
             :rtype: (str, enum, float, float)
             """
             trigger_instance = self.validate_trigger_instance(trigger_instance)
-            return self.mso.query_analog_edge_trigger(trigger_instance)
+            parameters = self.mso.query_analog_edge_trigger(trigger_instance)
+            if return_dict is True:
+                names = [
+                    "Trigger Source",
+                    ("Trigger Slope",
+                     lambda param: str(param)),
+                    "Trigger Level (V)",
+                    "Trigger Hysteresis (V)"
+                    ]
+                return self.to_dict(parameters, names)
+            else:
+                return parameters
 
         # def query_digital_edge_trigger(self, trigger_instance):
         #     ''' Indicates the digital trigger configuration of the specified
@@ -1378,15 +1467,20 @@ class VirtualBench():
         #         happen when the sampling rate is less than 1 GHz.
         #     '''
 
-        def query_trigger_delay(self):
+        def query_trigger_delay(self, return_dict=False):
             """ Indicates the trigger delay setting of the MSO.
 
             :return: Trigger delay
             :rtype: float
             """
-            return self.mso.query_trigger_delay()
+            parameters = self.mso.query_trigger_delay()
+            if return_dict is True:
+                return self.to_dict(parameters, ["Trigger Delay (s)"])
+            else:
+                return parameters
 
-        def query_analog_pulse_width_trigger(self, trigger_instance):
+        def query_analog_pulse_width_trigger(self, trigger_instance,
+                                             return_dict=False):
             """ Indicates the analog pulse width trigger configuration of the
             specified instance.
 
@@ -1395,7 +1489,22 @@ class VirtualBench():
             :rtype: (str, enum, float, enum, float, float)
             """
             trigger_instance = self.validate_trigger_instance(trigger_instance)
-            return self.mso.query_analog_pulse_width_trigger(trigger_instance)
+            parameters = self.mso.query_analog_pulse_width_trigger(
+                trigger_instance)
+            if return_dict is True:
+                names = [
+                    "Trigger Source",
+                    ("Trigger Polarity",
+                     lambda param: str(param)),
+                    "Trigger Level (V)",
+                    ("Comparison Mode",
+                     lambda param: str(param)),
+                    "Lower Limit (V)",
+                    "Upper Limit (V)"
+                    ]
+                return self.to_dict(parameters, names)
+            else:
+                return parameters
 
         # def query_digital_pulse_width_trigger(self, trigger_instance):
         #     ''' Indicates the digital pulse width trigger configuration of
