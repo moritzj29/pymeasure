@@ -23,10 +23,24 @@
 #
 
 from ..errors import RangeError, RangeException
-from .instrument import Instrument
+from .instrument import Instrument, USBTMCInstrument
 from .mock import Mock
 from .resources import list_resources
 from .validators import discreteTruncate
+
+
+def discreteTruncate(number, discreteSet):
+    """ Truncates the number to the closest element in the positive discrete set.
+    Returns False if the number is larger than the maximum value or negative.
+    """
+    if number < 0: return False
+    discreteSet.sort()
+    for item in discreteSet:
+        if number <= item: return item
+    return False
+
+
+class RangeException(Exception): pass
 
 from . import advantest
 from . import agilent

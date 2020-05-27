@@ -26,9 +26,15 @@ import logging
 import re
 
 import numpy as np
+import inspect
 
 from pymeasure.adapters import FakeAdapter
 from pymeasure.adapters.visa import VISAAdapter
+
+try:
+    from pymeasure.adapters.usbtmc import USBTMCAdapter
+except ImportError:
+    log.warning("Could not import USBTMCAdapter.")
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
@@ -357,3 +363,40 @@ class FakeInstrument(Instrument):
                                   check_set_errors=check_set_errors,
                                   check_get_errors=check_get_errors,
                                   **kwargs)
+
+
+class USBTMCInstrument(Instrument):
+    """Generic Instrument Class for Instruments communicating via USBTMC.
+
+    The first argument can be an instantiated :class:`USBTMCAdapter <pymeasure.adapters.USBTMCAdapter>`
+    object.
+
+    .. code-block:: python
+
+        adapter = USBTMCAdapter(*adapter_args)
+        inst = USBTMCInstrument("Generic USBTMC Instrument", adapter)
+
+    Alternatively, positional arguments and keyword arguments will be
+    passed to construct a fresh adapter instance.  This allows for
+    Instrument objects to save static data such as `idVendor` and
+    `idProduct`, or a user to instantiate the instrument with a custom
+    `idSerial` keyword argument.
+
+    .. code-block:: python
+
+        inst = USBTMCInstrument("Generic USBTMC Instrument", 12345, 54321)
+        inst_1 = USBTMCInstrument("Generic USBTMC Instrument", idVendor=12345, idProduct=54321)
+        inst_2 = USBTMCInstrument("Generic USBTMC Instrument", "USB::1234::5678::INSTR")
+        inst_3 = USBTMCInstrument("Generic USBTMC Instrument", idSerial=23567)
+
+    """
+
+    def __init__(self, name, *args, **kwargs):
+        """Constructor method."""
+        # assert len(args) > 0
+        if len(args) > 0 and isinstance(args[0], USBTMCAdapter):
+            adapter = args[0]
+        else:
+            adapter = USBTMCAdapter(*args, **kwargs)
+
+        super(USBTMCInstrument, self).__init__(adapter, name)

@@ -22,7 +22,7 @@ Fake adapter
     :members:
     :undoc-members:
     :inherited-members:
-    :show-inheritance: 
+    :show-inheritance:
 
 ==============
 Serial adapter
@@ -32,7 +32,7 @@ Serial adapter
     :members:
     :undoc-members:
     :inherited-members:
-    :show-inheritance: 
+    :show-inheritance:
 
 ================
 Prologix adapter
@@ -42,7 +42,7 @@ Prologix adapter
     :members:
     :undoc-members:
     :inherited-members:
-    :show-inheritance: 
+    :show-inheritance:
 
 ============
 VISA adapter
@@ -63,3 +63,13 @@ VXI-11 adapter
     :undoc-members:
     :inherited-members:
     :show-inheritance: 
+
+==============
+USBTMC adapter
+==============
+
+.. autoclass:: pymeasure.adapters.USBTMCAdapter
+    :members:
+    :undoc-members:
+    :inherited-members:
+    :show-inheritance:
