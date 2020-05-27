@@ -871,41 +871,76 @@ class VirtualBench():
         #     '''
         #     self.fgen.query_filter()
 
-        def query_waveform_mode(self):
+        def query_waveform_mode(self, return_dict=False):
             """ Indicates whether the waveform output by the instrument is a
             standard or arbitrary waveform.
 
             :return: Waveform mode
             :rtype: enum
             """
-            return self.fgen.query_waveform_mode()
+            parameters = self.fgen.query_waveform_mode()
+            if return_dict is True:
+                names = [
+                    ('Waveform Mode',
+                     lambda param: str(param))
+                    ]
+                return self.to_dict(names, (parameters))
+            else:
+                return parameters
 
-        def query_standard_waveform(self):
+        def query_standard_waveform(self, return_dict=False):
             """ Returns the settings for a standard waveform generation.
 
             :return: Waveform function, amplitude, dc_offset, frequency,
                      duty_cycle
             :rtype: (enum, float, float, float, int)
             """
-            return self.fgen.query_standard_waveform()
+            parameters = self.fgen.query_standard_waveform()
+            if return_dict is True:
+                names = [
+                    ("Waveform function",
+                     lambda param: str(param)),
+                     "Amplitude (V)",
+                     "DC Offset (V)",
+                     "Frequency (Hz)",
+                     "Duty Cycle (%)"
+                    ]
+                return self.to_dict(parameters, names)
+            else:
+                return parameters
 
-        def query_arbitrary_waveform(self):
+        def query_arbitrary_waveform(self, return_dict=False):
             """ Returns the samples per second for arbitrary waveform
             generation.
 
             :return: Samples per second
             :rtype: int
             """
-            return self.fgen.query_arbitrary_waveform()
+            parameters = self.fgen.query_arbitrary_waveform()
+            if return_dict is True:
+                names = [
+                    'Samples per second'
+                    ]
+                return self.to_dict(names, (parameters))
+            else:
+                return parameters
 
-        def query_arbitrary_waveform_gain_and_offset(self):
+        def query_arbitrary_waveform_gain_and_offset(self, return_dict=False):
             """ Returns the settings for arbitrary waveform generation that
             includes gain and offset settings.
 
             :return: Gain, DC offset
             :rtype: (float, float)
             """
-            return self.fgen.query_arbitrary_waveform_gain_and_offset()
+            parameters = self.fgen.query_arbitrary_waveform_gain_and_offset()
+            if return_dict is True:
+                names = [
+                    'Gain',
+                    'DC Offset (V)'
+                    ]
+                return self.to_dict(names, parameters)
+            else:
+                return parameters
 
         def query_generation_status(self):
             """ Returns the status of waveform generation on the instrument.
@@ -913,7 +948,15 @@ class VirtualBench():
             :return: Status
             :rtype: enum
             """
-            return self.fgen.query_generation_status()
+            parameters = self.fgen.query_generation_status()
+            if return_dict is True:
+                names = [
+                    ("Generation Status",
+                     lambda param: str(param))
+                    ]
+                return self.to_dict(names, (parameters))
+            else:
+                return parameters
 
         def run(self):
             ''' Transitions the session from the Stopped state to the Running
