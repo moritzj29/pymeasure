@@ -900,10 +900,10 @@ class VirtualBench():
                 names = [
                     ("Waveform function",
                      lambda param: str(param)),
-                     "Amplitude (V)",
-                     "DC Offset (V)",
-                     "Frequency (Hz)",
-                     "Duty Cycle (%)"
+                    "Amplitude (V)",
+                    "DC Offset (V)",
+                    "Frequency (Hz)",
+                    "Duty Cycle (%)"
                     ]
                 return self.to_dict(parameters, names)
             else:
@@ -942,7 +942,7 @@ class VirtualBench():
             else:
                 return parameters
 
-        def query_generation_status(self):
+        def query_generation_status(self, return_dict=False):
             """ Returns the status of waveform generation on the instrument.
 
             :return: Status
