@@ -22,6 +22,7 @@
 # THE SOFTWARE.
 #
 
+import time
 import logging
 
 from pymeasure.instruments import Instrument, RangeException
@@ -39,10 +40,37 @@ class ThorlabsPM100USB(Instrument):
     wavelength_max = Instrument.measurement(
         "SENS:CORR:WAV? MAX", "Get maximum wavelength, in nm")
 
+    average = Instrument.control("SENS:AVERage?", "SENS:AVERage %d",
+                                 "Averaging rate")
+
+    def set_zero(self, timeout=60):
+        """Perform zero adjustment"""
+        self.write("SENS:CORR:COLLect:ZERO:INITiate")
+        start = time.time()
+        while self.values("SENS:CORR:COLLect:ZERO:STATe?")[0] is 1:
+            if time.time() > start + timeout:
+                self.write("SENS:CORR:COLLect:ZERO:ABORt")
+                log.info(
+                    "Aborted zero adjustment for %s due to timeout."
+                    % self.sensor_name)
+            else:
+                time.sleep(0.1)
+
+    zero_offset = Instrument.measurement(
+        "SENS:CORR:COLLect:ZERO:MAGnitude?", "Zero adjustment value")
+
+    beamdiameter = Instrument.control(
+        "SENS:CORR:BEAMdiameter?", "SENS:CORR:BEAMdiameter %g",
+        "Assumed beam diameter, in mm")
+    beamdiameter_min = Instrument.measurement(
+        "SENS:CORR:BEAMdiameter? MIN", "Minimum beam diameter, in mm")
+    beamdiameter_max = Instrument.measurement(
+        "SENS:CORR:BEAMdiameter? MAX", "Maximum beam diameter, in mm")
+
     def __init__(self, adapter, **kwargs):
         super(ThorlabsPM100USB, self).__init__(
-            adapter, "ThorlabsPM100USB powermeter", **kwargs)
-        self.timout = 3000
+            adapter, "ThorlabsPM100USB powermeter", write_termination='\n', read_termination='\n', **kwargs)
+        self.timeout = 3000  # where is this used??
         self.sensor()
 
     def measure_power(self, wavelength):
@@ -70,12 +98,12 @@ class ThorlabsPM100USB(Instrument):
         self.sensor_cal_msg = response[2]
         self.sensor_type = response[3]
         self.sensor_subtype = response[4]
-        self._flags_str = response[-1][:-1]
+        self._flags_str = response[-1]
         # interpretation of the flags
         # rough trick using bin repr, maybe something more elegant exixts
         # (bitshift, bitarray?)
-        # force representation as 8bits
-        self._flags = '{0:08b}'.format(int(self._flags_str))
+        # force representation as 9bits, max. value is 371 (sum of all codes)
+        self._flags = '{0:09b}'.format(int(self._flags_str))
         # convert to boolean
         self._flags = tuple(map(lambda x: x == '1', self._flags))
         self._flags = reversed(self._flags)  # account for bit order
@@ -111,3 +139,17 @@ class ThorlabsPM100USB(Instrument):
             return self.values("MEAS:POW?")
         else:
             raise Exception("%s is not a power sensor" % self.sensor_name)
+
+    @property
+    def power_density(self):
+        """Power Density, in Watt/cm2"""
+        if self.is_power:
+            return self.values("MEAS:PDENsity?")
+        else:
+            raise Exception("%s is not a power sensor" % self.sensor_name)
+
+    @property
+    def temperature(self):
+        """Temperature, in °C"""
+        if self.temperature_sens:
+            return self.values("MEAS:TEMPerature?")
