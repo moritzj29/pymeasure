@@ -77,8 +77,11 @@ class ThorlabsPM100USB(Instrument):
         # interpretation of the flags
         # rough trick using bin repr, maybe something more elegant exixts
         # (bitshift, bitarray?)
-        self._flags = tuple(
-            map(lambda x: x == '1', bin(int(self._flags_str))[2:]))
+        # force representation as 8bits
+        self._flags = '{0:08b}'.format(int(self._flags_str))
+        # convert to boolean
+        self._flags = tuple(map(lambda x: x == '1', self._flags))
+        self._flags = reversed(self._flags)  # account for bit order
         # setting the flags; _dn are empty
         self.is_power, self.is_energy, _d4, _d8, \
         self.resp_settable, self.wavelength_settable, self.tau_settable, _d128, self.temperature_sens = self._flags
