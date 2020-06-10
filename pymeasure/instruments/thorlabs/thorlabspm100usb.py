@@ -23,19 +23,21 @@
 #
 
 import logging
-log = logging.getLogger(__name__)
-log.addHandler(logging.NullHandler())
 
 from pymeasure.instruments import Instrument, RangeException
+
+log = logging.getLogger(__name__)
+log.addHandler(logging.NullHandler())
 
 
 class ThorlabsPM100USB(Instrument):
     """Represents Thorlabs PM100USB powermeter"""
 
-    wavelength_min = Instrument.measurement("SENS:CORR:WAV? MIN", "Get minimum wavelength, in nm")
-    
-    wavelength_max = Instrument.measurement("SENS:CORR:WAV? MAX", "Get maximum wavelength, in nm")
+    wavelength_min = Instrument.measurement(
+        "SENS:CORR:WAV? MIN", "Get minimum wavelength, in nm")
 
+    wavelength_max = Instrument.measurement(
+        "SENS:CORR:WAV? MAX", "Get maximum wavelength, in nm")
 
     def __init__(self, adapter, **kwargs):
         super(ThorlabsPM100USB, self).__init__(
@@ -47,13 +49,15 @@ class ThorlabsPM100USB(Instrument):
         """Set wavelength in nm and get power in W
         If wavelength is out of range it will be set to range limit"""
         if wavelength < self.wavelength_min:
-            raise RangeException("Wavelength %.2f nm out of range: using minimum wavelength: %.2f nm" % (
-                wavelength, self.wavelength_min))
-            # explicit setting wavelenghth, althought it would be automatically set
+            raise RangeException(
+                "Wavelength %.2f nm out of range: using minimum wavelength: %.2f nm"
+                % (wavelength, self.wavelength_min))
+            # explicitly setting wavelenghth, although it would be autoset
             wavelength = self.wavelength_min
         if wavelength > self.wavelength_max:
-            raise RangeException("Wavelength %.2f nm out of range: using maximum wavelength: %.2f nm" % (
-                wavelength, self.wavelength_max))
+            raise RangeException(
+                "Wavelength %.2f nm out of range: using maximum wavelength: %.2f nm"
+                % (wavelength, self.wavelength_max))
             wavelength = self.wavelength_max
         self.wavelength = wavelength
         return self.power
@@ -77,7 +81,9 @@ class ThorlabsPM100USB(Instrument):
         self._flags = reversed(self._flags)  # account for bit order
         # setting the flags; _dn are empty
         self.is_power, self.is_energy, _d4, _d8, \
-        self.resp_settable, self.wavelength_settable, self.tau_settable, _d128, self.temperature_sens = self._flags
+            self.resp_settable, self.wavelength_settable, \
+            self.tau_settable, _d128, self.temperature_sens = self._flags
+
     @property
     def wavelength(self):
         self.values("SENSE:CORR:WAV?")
