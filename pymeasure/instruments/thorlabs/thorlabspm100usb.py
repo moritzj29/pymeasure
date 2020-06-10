@@ -32,13 +32,6 @@ from pymeasure.instruments import Instrument, RangeException
 class ThorlabsPM100USB(Instrument):
     """Represents Thorlabs PM100USB powermeter"""
 
-    # TODO: refactor to check if the sensor wavelength is adjustable
-    wavelength = Instrument.control("SENSE:CORR:WAV?", "SENSE:CORR:WAV %g",
-                                    "Wavelength in nm; not set outside of range")
-    
-    # TODO: refactor to check if the sensor is a power sensor
-    power = Instrument.measurement("MEAS:POW?", "Power, in Watts")
-    
     wavelength_min = Instrument.measurement("SENS:CORR:WAV? MIN", "Get minimum wavelength, in nm")
     
     wavelength_max = Instrument.measurement("SENS:CORR:WAV? MAX", "Get maximum wavelength, in nm")
@@ -85,6 +78,18 @@ class ThorlabsPM100USB(Instrument):
         # setting the flags; _dn are empty
         self.is_power, self.is_energy, _d4, _d8, \
         self.resp_settable, self.wavelength_settable, self.tau_settable, _d128, self.temperature_sens = self._flags
+    @property
+    def wavelength(self):
+        self.values("SENSE:CORR:WAV?")
+
+    @wavelength.setter
+    def wavelength(self, val):
+        """Wavelength in nm; not set outside of range"""
+        if self.wavelength_settable:
+            self.values("SENSE:CORR:WAV %g" % val)
+        else:
+            raise Exception(
+                "Wavelength is not settable for %s" % self.sensor_name)
 
     @property
     def energy(self):
@@ -92,8 +97,11 @@ class ThorlabsPM100USB(Instrument):
             return self.values("MEAS:ENER?")
         else:
             raise Exception("%s is not an energy sensor" % self.sensor_name)
-            return 0
 
-    @energy.setter
-    def energy(self, val):
-        raise Exception("Energy not settable!")
+    @property
+    def power(self):
+        """Power, in Watts"""
+        if self.is_power:
+            return self.values("MEAS:POW?")
+        else:
+            raise Exception("%s is not a power sensor" % self.sensor_name)
