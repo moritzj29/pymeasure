@@ -114,13 +114,13 @@ class ThorlabsPM100USB(Instrument):
 
     @property
     def wavelength(self):
-        self.values("SENSE:CORR:WAV?")
+        self.values("SENSE:CORR:WAV?")[0]
 
     @wavelength.setter
     def wavelength(self, val):
         """Wavelength in nm; not set outside of range"""
         if self.wavelength_settable:
-            self.values("SENSE:CORR:WAV %g" % val)
+            self.write("SENSE:CORR:WAV %g" % val)
         else:
             raise Exception(
                 "Wavelength is not settable for %s" % self.sensor_name)
@@ -128,7 +128,7 @@ class ThorlabsPM100USB(Instrument):
     @property
     def energy(self):
         if self.is_energy:
-            return self.values("MEAS:ENER?")
+            return self.values("MEAS:ENER?")[0]
         else:
             raise Exception("%s is not an energy sensor" % self.sensor_name)
 
@@ -136,7 +136,7 @@ class ThorlabsPM100USB(Instrument):
     def power(self):
         """Power, in Watts"""
         if self.is_power:
-            return self.values("MEAS:POW?")
+            return self.values("MEAS:POW?")[0]
         else:
             raise Exception("%s is not a power sensor" % self.sensor_name)
 
@@ -144,7 +144,7 @@ class ThorlabsPM100USB(Instrument):
     def power_density(self):
         """Power Density, in Watt/cm2"""
         if self.is_power:
-            return self.values("MEAS:PDENsity?")
+            return self.values("MEAS:PDENsity?")[0]
         else:
             raise Exception("%s is not a power sensor" % self.sensor_name)
 
@@ -152,4 +152,4 @@ class ThorlabsPM100USB(Instrument):
     def temperature(self):
         """Temperature, in °C"""
         if self.temperature_sens:
-            return self.values("MEAS:TEMPerature?")
+            return self.values("MEAS:TEMPerature?")[0]
