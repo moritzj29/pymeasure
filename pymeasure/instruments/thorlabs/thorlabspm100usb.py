@@ -42,6 +42,10 @@ class ThorlabsPM100USB(Instrument):
             read_termination='\n', **kwargs)
         self.check_errors()
         self.sensor()
+        if self.is_power:
+            self.power = self.Power(self)
+            self.current = self.Current(self)
+            self.voltage = self.Voltage(self)
 
     # -------------------------------
     # SYSTem subsystem commands
@@ -138,6 +142,10 @@ class ThorlabsPM100USB(Instrument):
             raise Exception(
                 "Wavelength is not settable for %s" % self.sensor_name)
 
+    # other CORRection topics (Power, Voltage, ...) are implemented as
+    # classes and set in __init__
+    # according to sensor capabilities
+
     # -------------------------------
     # INPut subsystem commands
     # -------------------------------
@@ -218,3 +226,124 @@ class ThorlabsPM100USB(Instrument):
         """Set wavelength in nm and get power in W"""
         self.wavelength = wavelength
         return self.power
+
+    # -------------------------------
+    # Sub-Classes
+    # -------------------------------
+
+    class Instrument_Sub():
+        """Provide adapter communication methods of a given instrument
+        instance.
+        To be used as a base class.
+        """
+
+        def __init__(self, parent_instrument):
+            self._instrument = parent_instrument
+
+        def write(self, command):
+            self._instrument.write(command)
+
+        def read(self):
+            return self._instrument.read()
+
+        def ask(self, command):
+            return self._instrument.ask(command)
+
+        def values(self, command):
+            return self._instrument.values(command)
+
+        def binary_values(self, command):
+            return self._instrument.binary_values(command)
+
+        def check_errors(self):
+            return self._instrument.check_errors()
+
+    class DC_sensor(Instrument_Sub):
+        """Base class for sense settings for DC type sensors,
+        e.g. photodiodes/power sensors.
+        """
+
+        def __init__(self, parent_instrument, command_prefix="POWer"):
+            super().__init__(parent_instrument)
+            self.cmd_prefix = command_prefix
+
+            # setting properties requiring methods of class
+            self.auto_range = Instrument.setting(
+                self._cmd("Auto?"), self._cmd("Auto %d"), "Auto Range Setting",
+                set_process=lambda v: bool(v))
+            self.range_min = Instrument.measurement(
+                self._cmd("RANGe? MINimum"), "Minimum settable range")
+            self.range_max = Instrument.measurement(
+                self._cmd("RANGe? MAXimum"), "Maximum settable range")
+            self.reference_min = Instrument.measurement(
+                self._cmd("REFerence? MINimum"),
+                "Minimum settable reference value")
+            self.reference_state = Instrument.setting(
+                self._cmd("REFerence:STATe?"), self._cmd("REFerence:STATe %d"),
+                "Switch to delta mode",
+                set_process=lambda v: bool(v))
+            self.reference_max = Instrument.measurement(
+                self._cmd("REFerence? MAXimum"),
+                "Maximum settable reference value")
+            self.reference_default = Instrument.measurement(
+                self._cmd("REFerence? DEFault"), "Default reference value")
+
+        def _cmd(self, command):
+            return "SENSe:{}:{}".format(self.cmd_prefix, command)
+
+        @property
+        def range(self):
+            """Power Range, in W (set: also MIN/MAX)"""
+            self.values(self._cmd("RANGe?"))[0]
+
+        @range.setter
+        def range(self, value):
+            if isinstance(value, str):
+                value = value.upper()
+                value = strict_discrete_set(
+                    value, ('MIN', 'MAX', 'min', 'max'))
+            else:
+                value = strict_range(value, (self.range_min, self.range_max))
+                value = "%g" % value
+            self.write(self._cmd("RANGe %s" % value))
+
+        @property
+        def reference(self):
+            """Reference Value"""
+            self.values(self._cmd("REFerence?"))[0]
+
+        @reference.setter
+        def reference(self, value):
+            if isinstance(value, str):
+                value = value.upper()
+                value = strict_discrete_set(
+                    value, ('MIN', 'MAX', 'DEF', 'DEFAULT'))
+            else:
+                value = strict_range(
+                    value, (self.reference_min, self.reference_max))
+                value = "%g" % value
+            self.write(self._cmd("REFerence %s" % value))
+
+    class Current(DC_sensor):
+        """Current sensing settings, in A.
+        """
+        def __init__(self, instrument):
+            super().__init__(instrument, command_prefix="CURRent")
+
+    class Voltage(DC_sensor):
+        """Voltage sensing settings, in V.
+        """
+        def __init__(self, instrument):
+            super().__init__(instrument, command_prefix="VOLTage")
+
+    class Power(DC_sensor):
+        """Power sensing settings, in W
+        unless units are switched to dBm.
+        """
+        def __init__(self, instrument):
+            super().__init__(instrument, command_prefix="POWer")
+            self.unit = Instrument.control(
+                self._cmd("UNIT?"), self._cmd("UNIT %s"),
+                "Power Unit setting, W or dBm",
+                validator=lambda v: strict_discrete_set(v, ("W", "dBm", "dbm"))
+                )
