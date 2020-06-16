@@ -43,17 +43,18 @@ class ThorlabsPM100USB(Instrument):
         self.check_errors()
         self.sensor()
         if self.is_power:
-            self.power = self.Power(self)
-            self.current = self.Current(self)
-            self.voltage = self.Voltage(self)
-
+            self.power_setup = self.Power(self)
+            self.current_setup = self.Current(self)
+            self.voltage_setup = self.Voltage(self)
+    
+    def check_idle(self):
+        self.ask("*OPC?")
     # -------------------------------
     # SYSTem subsystem commands
     # -------------------------------
 
     def check_errors(self):
-        """Check if any Errors occured
-        """
+        """Check if any Errors occured"""
         (code, message) = self.ask("SYSTem:ERRor?").split(',')
         if code != 0:
             log.warning(
@@ -61,7 +62,7 @@ class ThorlabsPM100USB(Instrument):
                 )
 
     def sensor(self):
-        "Get sensor info"
+        """Get sensor info and set properties"""
         response = self.ask("SYST:SENSOR:IDN?").split(',')
         self.sensor_name = response[0]
         self.sensor_sn = response[1]
@@ -130,12 +131,12 @@ class ThorlabsPM100USB(Instrument):
     @property
     def wavelength(self):
         """Wavelength, in nm"""
-        self.values("SENSE:CORR:WAV?")[0]
+        return self.values("SENSE:CORR:WAV?")[0]
 
     @wavelength.setter
     def wavelength(self, val):
-        wavelength = strict_range(
-            wavelength, (self.wavelength_min, self.wavelength_max))
+        val = strict_range(
+            val, (self.wavelength_min, self.wavelength_max))
         if self.wavelength_settable:
             self.write("SENSE:CORR:WAV %g" % val)
         else:
@@ -154,9 +155,18 @@ class ThorlabsPM100USB(Instrument):
     # Measurement commands
     # -------------------------------
 
+    def initiate(self):
+        """Initiate measurement mode"""
+        self.write("INITiate")
+        self.check_idle()
+
+    def abort(self):
+        """Abort measurement"""
+        self.write("ABORt")
+
     @property
     def power(self):
-        """Power, in Watts"""
+        """Power, in W"""
         if self.is_power:
             return self.values("MEAS:POWer?")[0]
         else:
@@ -196,7 +206,7 @@ class ThorlabsPM100USB(Instrument):
 
     @property
     def power_density(self):
-        """Power Density, in Watt/cm2"""
+        """Power Density, in W/cm2"""
         if self.is_power:
             return self.values("MEAS:PDENsity?")[0]
         else:
@@ -268,25 +278,29 @@ class ThorlabsPM100USB(Instrument):
             self.cmd_prefix = command_prefix
 
             # setting properties requiring methods of class
-            self.auto_range = Instrument.setting(
-                self._cmd("Auto?"), self._cmd("Auto %d"), "Auto Range Setting",
-                set_process=lambda v: bool(v))
-            self.range_min = Instrument.measurement(
-                self._cmd("RANGe? MINimum"), "Minimum settable range")
-            self.range_max = Instrument.measurement(
-                self._cmd("RANGe? MAXimum"), "Maximum settable range")
-            self.reference_min = Instrument.measurement(
+            # properties need to be set as attributes of class not of instance
+            setattr(self.__class__, 'auto_range', Instrument.control(
+                self._cmd("RANGe:Auto?"), self._cmd("RANGe:Auto %d"),
+                "Auto Range Setting",
+                set_process=lambda v: bool(v), get_process=lambda v: bool(v)
+                ))
+            setattr(self.__class__, 'range_min', Instrument.measurement(
+                self._cmd("RANGe? MINimum"), "Minimum settable range"))
+            setattr(self.__class__, 'range_max', Instrument.measurement(
+                self._cmd("RANGe? MAXimum"), "Maximum settable range"))
+            setattr(self.__class__, 'reference_min', Instrument.measurement(
                 self._cmd("REFerence? MINimum"),
-                "Minimum settable reference value")
-            self.reference_state = Instrument.setting(
+                "Minimum settable reference value"))
+            setattr(self.__class__, 'reference_state', Instrument.control(
                 self._cmd("REFerence:STATe?"), self._cmd("REFerence:STATe %d"),
                 "Switch to delta mode",
-                set_process=lambda v: bool(v))
-            self.reference_max = Instrument.measurement(
+                set_process=lambda v: bool(v)))
+            setattr(self.__class__, 'reference_max', Instrument.measurement(
                 self._cmd("REFerence? MAXimum"),
-                "Maximum settable reference value")
-            self.reference_default = Instrument.measurement(
-                self._cmd("REFerence? DEFault"), "Default reference value")
+                "Maximum settable reference value"))
+            setattr(self.__class__, 'reference_default',
+                    Instrument.measurement(self._cmd("REFerence? DEFault"),
+                                           "Default reference value"))
 
         def _cmd(self, command):
             return "SENSe:{}:{}".format(self.cmd_prefix, command)
@@ -294,7 +308,7 @@ class ThorlabsPM100USB(Instrument):
         @property
         def range(self):
             """Power Range, in W (set: also MIN/MAX)"""
-            self.values(self._cmd("RANGe?"))[0]
+            return self.values(self._cmd("RANGe?"))[0]
 
         @range.setter
         def range(self, value):
@@ -310,7 +324,7 @@ class ThorlabsPM100USB(Instrument):
         @property
         def reference(self):
             """Reference Value"""
-            self.values(self._cmd("REFerence?"))[0]
+            return self.values(self._cmd("REFerence?"))[0]
 
         @reference.setter
         def reference(self, value):
