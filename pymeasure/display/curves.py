@@ -27,9 +27,14 @@ import sys
 
 log = logging.getLogger(__name__)
 log.addHandler(logging.NullHandler())
-
+import numpy as np # import numpy before pyqtgraph -> pyqtgraph does not import again
+# redefine np.log to also accept negative values by taking absolute values
+import copy
+newlog = copy.deepcopy(np.log10)
+np.log10 = lambda x: newlog(np.abs(x))
+# Attention redefines all uses of np.log10 below this file!!
 import pyqtgraph as pg
-import numpy as np
+
 try:
     from matplotlib.cm import viridis
 except ImportError:
